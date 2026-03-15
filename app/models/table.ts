@@ -189,7 +189,8 @@ export class Table {
         if (player_position !== undefined) {
             return player_position;
         }
-        throw new Error(`Could not retrieve position for player with id: ${player_id}.`);
+        console.warn(`Could not retrieve position for player with id: ${player_id}. Using "Unknown".`);
+        return "Unknown";
     }
     
     public setIdToPosition(first_seat = 1): void {

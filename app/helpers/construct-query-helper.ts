@@ -158,7 +158,7 @@ function defineActions(player_actions: Array<PlayerAction>, table: Table): strin
 }
 
 function defineStats(player_positions: Map<string, string>, table: Table, hero_name: string): string {
-    let query = "Here are the stats of the other players in the pot, defined in the format {position: Total Hands Played = total_hands, VPIP = vpip_stat, PFR = pfr_stat}:\n"
+    let query = "Here are the stats of the other players in the pot, defined in the format {position (name): Total Hands Played = total_hands, VPIP = vpip_stat, PFR = pfr_stat}:\n"
     let player_ids = Array.from(player_positions.keys());
 
     for (var i = 0; i < player_ids.length; i++)  {
@@ -169,7 +169,7 @@ function defineStats(player_positions: Map<string, string>, table: Table, hero_n
         }
         const player_stats = table.getPlayerStatsFromName(player_name);
         const player_pos = table.getPlayerPositionFromId(player_id);
-        let curr = `{${player_pos}: Total Hands Played = ${player_stats.getTotalHands()}, VPIP = ${player_stats.computeVPIPStat().toFixed(2)}, PFR = ${player_stats.computePFRStat().toFixed(2)}}`;
+        let curr = `{${player_pos} (${player_name}): Total Hands Played = ${player_stats.getTotalHands()}, VPIP = ${player_stats.computeVPIPStat().toFixed(2)}, PFR = ${player_stats.computePFRStat().toFixed(2)}}`;
         if (i != player_ids.length - 1) {
             curr = curr.concat("\n");
         }
@@ -179,5 +179,5 @@ function defineStats(player_positions: Map<string, string>, table: Table, hero_n
 }
 
 function defineOutput(): string {
-    return "Respond in this format: {action, bet_size_in_BBs BB} one sentence reason. Example: {call, 4 BB} Strong draw with good pot odds.";
+    return "Respond in this format: {action, bet_size_in_BBs BB} two sentence reason. First sentence: explain the decision based on hand strength and position. Second sentence: mention the most relevant opponent (use their position and name) and how their stats influenced the decision. Example: {raise, 8 BB} Top pair with strong kicker justifies a raise for value. UTG (Shawn0627, VPIP=0.62) is a loose caller so a larger sizing extracts more value.";
 }

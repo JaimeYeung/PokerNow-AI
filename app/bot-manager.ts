@@ -22,13 +22,43 @@ const webdriver_config: WebDriverConfig = webdriver_config_json;
 
 function init(): string {
     dotenv.config();
-    return io("Enter the PokerNow game id (ex. https://www.pokernow.club/games/{game_id}): ");
+    if (bot_config.assistant_mode) {
+        console.log("=================================================");
+        console.log(" AI Assistant Mode");
+        console.log(" The browser will open. Please:");
+        console.log("   1. Click an empty seat [SIT]");
+        console.log("   2. Enter your name and stack size, then submit");
+        console.log("   3. Wait for the host to approve");
+        console.log(" Once seated, AI monitors the game and shows a");
+        console.log(" suggestion in the top-right on your turn.");
+        console.log("=================================================\n");
+    }
+    return io("Enter the PokerNow game ID (e.g. https://www.pokernow.club/games/{game_id}): ");
 }
 
 const bot_manager = async function() {
     const game_id = init();
 
-    const puppeteer_service = new PuppeteerService(webdriver_config.default_timeout, webdriver_config.headless_flag);
+    const use_existing = webdriver_config.use_existing_browser ?? false;
+    const debugging_port = webdriver_config.debugging_port ?? 9222;
+
+    if (use_existing) {
+        console.log(`\n[Connecting to existing Chrome on port ${debugging_port}]`);
+        console.log(`  If Chrome is not running yet, start it first with:`);
+        console.log(`  ./start-chrome.sh\n`);
+    } else {
+        if (bot_config.assistant_mode) {
+            console.log("\nOpening browser — please sit down manually in the browser window.\n");
+        }
+    }
+
+    const headless = webdriver_config.headless_flag && !bot_config.assistant_mode;
+    const puppeteer_service = new PuppeteerService(
+        webdriver_config.default_timeout,
+        headless,
+        use_existing,
+        debugging_port
+    );
     await puppeteer_service.init();
 
     const db_service = new DBService("./app/pokernow-gpt.db");
@@ -45,7 +75,7 @@ const bot_manager = async function() {
     console.log(`Created AI service: ${ai_config.provider} ${ai_config.model_name} with playstyle: ${ai_config.playstyle}`);
     ai_service.init();
 
-    const bot = new Bot(log_service, ai_service, player_service, puppeteer_service, game_id, bot_config.debug_mode, bot_config.query_retries);
+    const bot = new Bot(log_service, ai_service, player_service, puppeteer_service, game_id, bot_config.debug_mode, bot_config.query_retries, bot_config.assistant_mode);
     await bot.run();
 }
 

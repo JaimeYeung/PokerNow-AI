@@ -39,7 +39,8 @@ export abstract class AIService {
 
 export interface BotAction {
     action_str: string,
-    bet_size_in_BBs: number
+    bet_size_in_BBs: number,
+    reason?: string
 }
 
 export const defaultCheckAction = {

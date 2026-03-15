@@ -179,5 +179,5 @@ function defineStats(player_positions: Map<string, string>, table: Table, hero_n
 }
 
 function defineOutput(): string {
-    return "Do not provide an explanation, respond in this format: {action, bet_size_in_BBs BB}";
+    return "Respond in this format: {action, bet_size_in_BBs BB} one sentence reason. Example: {call, 4 BB} Strong draw with good pot odds.";
 }

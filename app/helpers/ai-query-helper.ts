@@ -16,16 +16,18 @@ export function getPromptFromPlaystyle(playstyle: string) {
 }
 
 export function parseResponse(msg: string): BotAction {
-    msg = processOutput(msg);
+    const reason = extractReason(msg);
+    const inner = processOutput(msg);
 
-    if (!msg) {
+    if (!inner) {
         return {
             action_str: "",
-            bet_size_in_BBs: 0
+            bet_size_in_BBs: 0,
+            reason
         }
     }
     
-    const action_matches = msg.match(/(bet|raise|call|check|fold|all.in)/);
+    const action_matches = inner.match(/(bet|raise|call|check|fold|all.in)/);
     let action_str = "";
     if (action_matches) {
         action_str = action_matches[0];
@@ -34,15 +36,25 @@ export function parseResponse(msg: string): BotAction {
         }
     }
 
-    const bet_size_matches = msg.match(/[+]?([0-9]+(?:[\.][0-9]*)?|\.[0-9]+)/);
+    const bet_size_matches = inner.match(/[+]?([0-9]+(?:[\.][0-9]*)?|\.[0-9]+)/);
     let bet_size_in_BBs = 0;
     if (bet_size_matches) {
         bet_size_in_BBs = parseFloat(bet_size_matches[0]);
     }
     return {
-        action_str: action_str,
-        bet_size_in_BBs: bet_size_in_BBs
+        action_str,
+        bet_size_in_BBs,
+        reason
     }
+}
+
+/** Extract the sentence after the closing } as the reason. */
+function extractReason(msg: string): string {
+    const end_index = msg.indexOf("}");
+    if (end_index !== -1 && end_index < msg.length - 1) {
+        return msg.substring(end_index + 1).trim();
+    }
+    return "";
 }
 
 function processOutput(msg: string): string {

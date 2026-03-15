@@ -1,4 +1,6 @@
 {
-    "default_timeout": 1000,
-    "headless_flag": true
+    "default_timeout": 5000,
+    "headless_flag": true,
+    "use_existing_browser": true,
+    "debugging_port": 9222
 }

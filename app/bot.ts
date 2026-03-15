@@ -29,6 +29,7 @@ export class Bot {
     private game_id: string;
     private debug_mode: DebugMode;
     private query_retries: number;
+    private assistant_mode: boolean;
 
     private first_created: string;
     private hand_history: ChatCompletionMessageParam | any;
@@ -43,7 +44,8 @@ export class Bot {
                 puppeteer_service: PuppeteerService,
                 game_id: string,
                 debug_mode: DebugMode,
-                query_retries: number) 
+                query_retries: number,
+                assistant_mode: boolean = false) 
     {
         this.log_service = log_service;
         this.ai_service = ai_service;
@@ -53,6 +55,7 @@ export class Bot {
         this.game_id = game_id;
         this.debug_mode = debug_mode;
         this.query_retries = query_retries;
+        this.assistant_mode = assistant_mode;
 
         this.first_created = "";
         this.hand_history = [];
@@ -60,7 +63,11 @@ export class Bot {
 
     public async run() {
         await this.openGame();
-        await this.enterTableInProgress();
+        if (this.assistant_mode) {
+            await this.waitForUserToSit();
+        } else {
+            await this.enterTableInProgress();
+        }
         // retrieve initial num players
         await this.updateNumPlayers();
         //TODO: implement loop until STOP SIGNAL (perhaps from UI?)
@@ -116,6 +123,30 @@ export class Bot {
         logResponse(await this.puppeteer_service.waitForTableEntry(), this.debug_mode);
     }
 
+    /**
+     * Assistant mode: wait for the user to manually sit down in the browser,
+     * then read the player name from the page.
+     */
+    private async waitForUserToSit() {
+        console.log("\n[Assistant Mode] Please select a seat in the browser, enter your name and stack size, then submit.");
+        console.log("[Assistant Mode] Waiting for the host to accept your request. AI will start monitoring once you are seated...\n");
+
+        // Wait until .you-player appears (host accepted, user is seated)
+        const res = await this.puppeteer_service.waitForTableEntry();
+        logResponse(res, this.debug_mode);
+
+        // Read the player name that the user typed
+        const nameRes = await this.puppeteer_service.getYouPlayerName();
+        if (nameRes.code === "success" && nameRes.data) {
+            this.bot_name = (nameRes.data as string).trim();
+            console.log(`[Assistant Mode] Detected player name: ${this.bot_name}`);
+        } else {
+            // Fallback: ask in terminal
+            const io = prompt();
+            this.bot_name = io("Could not detect your player name, please enter it manually: ");
+        }
+    }
+
     private async updateNumPlayers() {
         const res = await this.puppeteer_service.getNumPlayers();
         if (res.code === "success") {
@@ -148,36 +179,57 @@ export class Bot {
             if (res.code == "success") {
                 const data = res.data as string;
                 if (data.includes("action-signal")) {
-                    try {
-                        await sleep(2000);
-                        processed_logs = await this.pullAndProcessLogs(processed_logs.last_created, processed_logs.first_fetch);
-                    } catch (err) {
-                        console.log("Failed to pull logs.");
-                    }
                     console.log("Performing bot's turn.");
 
-                    // get hand and stack size
-                    const pot_size = await this.getPotSize();
-                    const hand = await this.getHand();
-                    const stack_size = await this.getStackSize();
+                    // fetch logs, hand, pot and stack concurrently to minimise latency
+                    const [logsResult, pot_size, hand, stack_size] = await Promise.all([
+                        (async () => {
+                            try {
+                                await sleep(500);
+                                return await this.pullAndProcessLogs(processed_logs.last_created, processed_logs.first_fetch);
+                            } catch (err) {
+                                console.log("Failed to pull logs.");
+                                return processed_logs;
+                            }
+                        })(),
+                        this.getPotSize(),
+                        this.getHand(),
+                        this.getStackSize(),
+                    ]);
+                    processed_logs = logsResult;
 
                     this.table.setPot(convertToBBs(pot_size, this.game.getBigBlind()));
-                    await this.updateHero(hand, convertToBBs(stack_size, this.game.getBigBlind()));
 
-                    // post process logs and construct query
-                    await postProcessLogs(this.table.getLogsQueue(), this.game);
-                    const query = constructQuery(this.game);
-                    // query chatGPT and make action
-                    try {
-                        const bot_action = await this.queryBotAction(query, this.query_retries);
-                        this.table.resetPlayerActions();
-                        await this.performBotAction(bot_action);
-                    } catch (err) {
-                        console.log("Failed to query and perform bot action.")
+                    // If logs never succeeded (first_fetch still true), the name→id map is
+                    // not yet populated so updateHero and constructQuery would both crash.
+                    // Skip everything AI-related and wait for the next turn.
+                    if (processed_logs.first_fetch) {
+                        console.log("Skipping AI query: logs not yet available, waiting for next turn.");
+                    } else {
+                        await this.updateHero(hand, convertToBBs(stack_size, this.game.getBigBlind()));
+                        // post process logs and construct query
+                        await postProcessLogs(this.table.getLogsQueue(), this.game);
+                        const query = constructQuery(this.game);
+                        // query chatGPT and make action
+                        try {
+                            const bot_action = await this.queryBotAction(query, this.query_retries);
+                            this.table.resetPlayerActions();
+                            if (this.assistant_mode) {
+                                await this.puppeteer_service.injectSuggestion(bot_action.action_str, bot_action.bet_size_in_BBs, bot_action.reason ?? "", this.game.getBigBlind());
+                                console.log("AI suggestion shown in top-right. Please act in the browser.");
+                            } else {
+                                await this.performBotAction(bot_action);
+                            }
+                        } catch (err) {
+                            console.log("Failed to query and perform bot action.")
+                        }
                     }
 
                     console.log("Waiting for bot's turn to end");
                     logResponse(await this.puppeteer_service.waitForBotTurnEnd(), this.debug_mode);
+                    if (this.assistant_mode) {
+                        await this.puppeteer_service.dimSuggestion();
+                    }
                 } else if (data.includes("winner")) {
                     console.log("Detected winner in hand.")
                     break;
@@ -322,7 +374,6 @@ export class Bot {
             }
         }
         try {
-            await sleep(2000);
             const ai_response = await this.ai_service.query(query, this.hand_history);
             this.hand_history = ai_response.prev_messages;
 

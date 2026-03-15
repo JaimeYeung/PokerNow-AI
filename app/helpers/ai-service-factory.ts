@@ -7,7 +7,7 @@ export class AIServiceFactory {
 
     constructor(){
         this.supportedModels = new Map<string, string[]>([
-            ["OpenAI", ["gpt-3.5-turbo", "gpt-4-turbo", "gpt-4o"]],
+            ["OpenAI", ["gpt-3.5-turbo", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini"]],
             ["Google", ["gemini-1.5-flash", "gemini-1.0-pro", "gemini-1.5-pro"]]
         ]);
     }

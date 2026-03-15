@@ -1,43 +1,47 @@
-import puppeteer from 'puppeteer';
+import fetch from 'node-fetch';
 import type { Response } from '../utils/error-handling-utils.ts';
 import { Data, Log } from '../interfaces/log-processing-interfaces.ts';
 
 export class LogService {
     private game_id: string;
-    private browser!: puppeteer.Browser;
-    private page!: puppeteer.Page;
     
     constructor(game_id: string) {
         this.game_id = game_id;
     }
 
     async init(): Promise<void> {
-        this.browser = await puppeteer.launch({
-            defaultViewport: null,
-            headless: true
-        });
-        this.page = await this.browser.newPage();
+        // No browser needed — logs are fetched directly via HTTP.
     }
 
     async closeBrowser(): Promise<void> {
-        await this.browser.close();
+        // Nothing to close.
     }
 
     async fetchData<D, E=Error>(before: string = "", after: string = ""): Response<D, E> {
         const url = `https://www.pokernow.club/games/${this.game_id}/log?before_at=${before}&after_at=${after}&mm=false&v=2`;
-        await this.page.goto(url);
         try {
-            await this.page.waitForSelector("body > pre", {timeout: 4000});
-            const logs_str = await this.page.$eval("body > pre", pre => pre.textContent);
+            const res = await fetch(url, {
+                headers: {
+                    "Accept": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+                }
+            });
+            if (!res.ok) {
+                return {
+                    code: "error",
+                    error: new Error(`Log API returned status ${res.status}.`) as E
+                }
+            }
+            const data = await res.json() as D;
             return {
                 code: "success",
-                data: JSON.parse(logs_str!) as D,
+                data,
                 msg: "Successfully got logs."
             }
         } catch (err) {
             return {
                 code: "error",
-                error: new Error("Failed to retrieve the text content of the api call.") as E
+                error: new Error(`Failed to fetch logs: ${err}`) as E
             }
         }
     }

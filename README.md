@@ -2,6 +2,8 @@
 
 <a id="readme-top"></a>
 
+![Demo](assets/demo.png)
+
 <!-- TABLE OF CONTENTS -->
 <details>
   <summary>Table of Contents</summary>

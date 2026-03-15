@@ -182,22 +182,43 @@ As LLMs continue to improve, their poker reasoning will naturally improve alongs
 <a id="running"></a>
 ### Running
 
-#### Option A — One command (recommended)
+#### Step 1 — Start everything
 
 ```sh
 npm start
 ```
 
-This will:
-1. Launch a dedicated Chrome window with remote debugging enabled
-2. Start the bot — enter the game ID when prompted
+This opens a dedicated Chrome window and starts the bot.
 
-Then in the Chrome window:
-1. Navigate to your PokerNow game
-2. Click an empty seat, enter your name and stack size, submit
-3. Wait for the host to approve — the AI starts automatically
+---
 
-#### Option B — Manual steps
+#### Step 2 — Enter the Game ID in the terminal
+
+The terminal will prompt:
+```
+Enter the PokerNow game ID (e.g. https://www.pokernow.club/games/{game_id}):
+```
+
+Enter **only the ID part** of the URL — not the full link. For example:
+
+| Full URL | What to type |
+|----------|-------------|
+| `https://www.pokernow.com/games/pgl-3YEOMYb8pdkfOtoGwyHPQ` | `pgl-3YEOMYb8pdkfOtoGwyHPQ` |
+
+---
+
+#### Step 3 — Sit down in the Chrome window (first time only)
+
+In the Chrome window that opened:
+1. Navigate to your PokerNow game URL
+2. Click an empty seat → enter your **name** and **stack size** → submit
+3. Wait for the host to approve your seat request
+
+> **You only need to do this once per session.** Once you are seated and the host approves, the AI starts monitoring automatically. On your turn, a suggestion appears in the **top-right corner** of the page.
+
+---
+
+#### Option B — Manual steps (advanced)
 
 ```sh
 # Step 1: open Chrome with the debug port
